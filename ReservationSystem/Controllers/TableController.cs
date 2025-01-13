@@ -35,7 +35,7 @@ namespace ReservationSystem.Controllers
             return Ok(tables);
         }
 
-        [HttpGet("{tableNumber}")]
+        [HttpGet("by-table/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -91,7 +91,7 @@ namespace ReservationSystem.Controllers
             return CreatedAtAction(nameof(GetTableByNumber), new { tableNumber = table.TableNumber }, table);
         }
 
-        [HttpPut("{tableNumber}")]
+        [HttpPut("by-table/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -119,7 +119,7 @@ namespace ReservationSystem.Controllers
             return NoContent();
         }
 
-        [HttpPatch("{tableNumber}")]
+        [HttpPatch("by-table/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -169,7 +169,7 @@ namespace ReservationSystem.Controllers
 
 
 
-        [HttpDelete("{tableNumber}")]
+        [HttpDelete("by-table/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
