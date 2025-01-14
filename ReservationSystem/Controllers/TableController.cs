@@ -7,6 +7,7 @@ using ReservationSystem.Models.DTO;
 
 namespace ReservationSystem.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
     public class TableController : ControllerBase
@@ -27,8 +28,7 @@ namespace ReservationSystem.Controllers
                 {
                     Id = t.Id,
                     TableNumber = t.TableNumber,
-                    Seats = t.Seats,
-                    IsAvailable = t.IsAvailable
+                    Seats = t.Seats
                 })
                 .ToListAsync();
 
@@ -47,8 +47,7 @@ namespace ReservationSystem.Controllers
                 {
                     Id = t.Id,
                     TableNumber = t.TableNumber,
-                    Seats = t.Seats,
-                    IsAvailable = t.IsAvailable
+                    Seats = t.Seats
                 })
                 .FirstOrDefaultAsync();
 
@@ -81,8 +80,7 @@ namespace ReservationSystem.Controllers
             var table = new Table
             {
                 TableNumber = tableDto.TableNumber,
-                Seats = tableDto.Seats,
-                IsAvailable = tableDto.IsAvailable,
+                Seats = tableDto.Seats
             };
 
             _context.Tables.Add(table);
@@ -91,27 +89,32 @@ namespace ReservationSystem.Controllers
             return CreatedAtAction(nameof(GetTableByNumber), new { tableNumber = table.TableNumber }, table);
         }
 
-        [HttpPut("by-table/{tableNumber}")]
+        [HttpPut("by-table/{tableId}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> UpdateTable(int tableNumber, [FromBody] TableDto tableDto)
+        public async Task<IActionResult> UpdateTable(int tableId, [FromBody] TableDto tableDto)
         {
-
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState); 
+                return BadRequest(ModelState);
             }
 
-            var table = await _context.Tables.FirstOrDefaultAsync(t => t.TableNumber == tableNumber);
+            var table = await _context.Tables.FirstOrDefaultAsync(t => t.Id == tableId);  
             if (table == null)
             {
                 return NotFound(new { message = "Table not found." });
             }
 
+            var hasReservations = await _context.Reservations.AnyAsync(r => r.TableId == tableId);  
+            if (hasReservations && table.Seats != tableDto.Seats)
+            {
+                return BadRequest(new { message = "Cannot change the number of seats because there are active reservations for this table." });
+            }
+
+            table.TableNumber = tableDto.TableNumber; 
             table.Seats = tableDto.Seats;
-            table.IsAvailable = tableDto.IsAvailable;
             table.UpdateDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -119,53 +122,9 @@ namespace ReservationSystem.Controllers
             return NoContent();
         }
 
-        [HttpPatch("by-table/{tableNumber}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> PatchTable(int tableNumber, [FromBody] JsonPatchDocument<TableDto> patchDoc)
-        {
-            if (patchDoc == null)
-            {
-                return BadRequest(new { message = "Invalid patch document." });
-            }
 
-            var table = await _context.Tables
-                .Where(t => t.TableNumber == tableNumber)
-                .Select(t => new TableDto
-                {
-                    Id = t.Id,
-                    TableNumber = t.TableNumber,
-                    Seats = t.Seats,
-                    IsAvailable = t.IsAvailable
-                })
-                .FirstOrDefaultAsync();
 
-            if (table == null)
-            {
-                return NotFound(new { message = "Table not found." });
-            }
 
-            patchDoc.ApplyTo(table, ModelState);
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            var tableToUpdate = await _context.Tables.FirstOrDefaultAsync(t => t.TableNumber == tableNumber);
-            if (tableToUpdate == null)
-            {
-                return NotFound(new { message = "Table not found." });
-            }
-            tableToUpdate.Seats = table.Seats;
-            tableToUpdate.IsAvailable = table.IsAvailable;
-            tableToUpdate.UpdateDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
 
 
 
@@ -187,5 +146,41 @@ namespace ReservationSystem.Controllers
             return NoContent();
         }
 
+        [HttpGet("tables")]
+        public async Task<IActionResult> GetTables([FromQuery] TableFilterDto filter)
+        {
+            var query = _context.Tables.AsQueryable();
+
+            if (filter.NumberOfGuests.HasValue)
+            {
+                query = query.Where(t => t.Seats >= filter.NumberOfGuests.Value);
+            }
+
+            if (filter.AvailableFrom.HasValue)
+            {
+                var availableFrom = filter.AvailableFrom.Value;
+                query = query.Where(t => t.Reservations.All(r => r.ReservationTime < availableFrom || r.ReservationTime.AddHours(1) <= availableFrom));
+            }
+
+            if (filter.AvailableUntil.HasValue)
+            {
+                var availableUntil = filter.AvailableUntil.Value;
+                query = query.Where(t => t.Reservations.All(r => r.ReservationTime >= availableUntil || r.ReservationTime.AddHours(1) >= availableUntil));
+            }
+
+            if (filter.ReservationTime.HasValue)
+            {
+                var reservationTime = filter.ReservationTime.Value;
+                query = query.Where(t => !t.Reservations.Any(r => r.ReservationTime == reservationTime));
+            }
+
+            var tables = await query.ToListAsync();
+
+            return Ok(tables);
+        }
+
+
+
     }
 }
+    

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ReservationSystem.Data;
 
@@ -11,9 +12,11 @@ using ReservationSystem.Data;
 namespace ReservationSystem.Migrations
 {
     [DbContext(typeof(ReservationSystemContext))]
-    partial class ReservationSystemContextModelSnapshot : ModelSnapshot
+    [Migration("20250114140111_RelationChanges")]
+    partial class RelationChanges
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -42,12 +45,12 @@ namespace ReservationSystem.Migrations
                     b.Property<DateTime>("ReservationTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("TableId")
+                    b.Property<int>("TableNumber")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TableId", "ReservationTime")
+                    b.HasIndex("TableNumber", "ReservationTime")
                         .IsUnique();
 
                     b.ToTable("Reservations");
@@ -82,7 +85,7 @@ namespace ReservationSystem.Migrations
                 {
                     b.HasOne("ReservationSystem.Models.Table", "Table")
                         .WithMany("Reservations")
-                        .HasForeignKey("TableId")
+                        .HasForeignKey("TableNumber")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

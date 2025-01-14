@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
 
 namespace ReservationSystem.Models.DTO
 {
@@ -13,6 +15,5 @@ namespace ReservationSystem.Models.DTO
         [Required(ErrorMessage = "Seats are required.")]
         [Range(1, 20, ErrorMessage = "Seats must be between 1 and 20.")]
         public int Seats { get; set; }
-        public bool IsAvailable { get; set; }
     }
 }

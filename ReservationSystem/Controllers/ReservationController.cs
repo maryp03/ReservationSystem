@@ -26,38 +26,12 @@ namespace ReservationSystem.Controllers
                 .Select(r => new ReservationDto
                 {
                     Id = r.Id,
-                    TableNumber = r.TableNumber,
+                    TableNumber = r.Table.TableNumber,  
                     ReservationTime = r.ReservationTime,
                     NumberOfGuests = r.NumberOfGuests,
                     GuestName = r.GuestName
                 })
                 .ToListAsync();
-
-            return Ok(reservations);
-        }
-
-        [HttpGet("by-table/{tableNumber}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservationsByTableNumber(int tableNumber)
-        {
-            var reservations = await _context.Reservations
-                .Where(r => r.TableNumber == tableNumber)
-                .Select(r => new ReservationDto
-                {
-                    Id = r.Id,
-                    TableNumber = r.TableNumber,
-                    ReservationTime = r.ReservationTime,
-                    NumberOfGuests = r.NumberOfGuests,
-                    GuestName = r.GuestName
-                })
-                .ToListAsync();
-
-            if (!reservations.Any())
-            {
-                return NotFound(new { message = "No reservations found for the specified table number." });
-            }
 
             return Ok(reservations);
         }
@@ -79,11 +53,21 @@ namespace ReservationSystem.Controllers
                 return BadRequest(new { message = "The number of guests must be greater than 0." });
             }
 
+            if (reservationDto.ReservationTime.HasValue)
+            {
+                var reservationTime = reservationDto.ReservationTime.Value;
+                if (reservationTime.Hour < 10 || reservationTime.Hour >= 22)
+                {
+                    return BadRequest(new { message = "Reservations can only be made between 10:00 and 22:00." });
+                }
+            }
+
             Reservation reservation = new Reservation();
 
             if (reservationDto.TableNumber.HasValue && reservationDto.TableNumber.Value > 0)
             {
-                var table = await _context.Tables.FirstOrDefaultAsync(t => t.TableNumber == reservationDto.TableNumber.Value);
+                var table = await _context.Tables
+                    .FirstOrDefaultAsync(t => t.TableNumber == reservationDto.TableNumber.Value);
 
                 if (table == null)
                 {
@@ -96,7 +80,7 @@ namespace ReservationSystem.Controllers
                 }
 
                 var existingReservations = await _context.Reservations
-                    .Where(r => r.TableNumber == reservationDto.TableNumber)
+                    .Where(r => r.TableId == table.Id)
                     .ToListAsync();
 
                 if (reservationDto.ReservationTime.HasValue)
@@ -130,7 +114,7 @@ namespace ReservationSystem.Controllers
                     reservation.ReservationTime = availableTime ?? currentTime;
                 }
 
-                reservation.TableNumber = reservationDto.TableNumber.Value;
+                reservation.TableId = table.Id;  
             }
             else
             {
@@ -139,12 +123,12 @@ namespace ReservationSystem.Controllers
                     .ToListAsync();
 
                 DateTime? globalEarliestTime = null;
-                int? selectedTable = null;
+                int? selectedTableId = null;
 
                 foreach (var table in availableTables)
                 {
                     var existingReservations = await _context.Reservations
-                        .Where(r => r.TableNumber == table.TableNumber)
+                        .Where(r => r.TableId == table.Id)
                         .OrderBy(r => r.ReservationTime)
                         .ToListAsync();
 
@@ -163,17 +147,17 @@ namespace ReservationSystem.Controllers
                     if (globalEarliestTime == null || potentialStartTime < globalEarliestTime)
                     {
                         globalEarliestTime = potentialStartTime;
-                        selectedTable = table.TableNumber;
+                        selectedTableId = table.Id;
                     }
                 }
 
-                if (globalEarliestTime == null || selectedTable == null)
+                if (globalEarliestTime == null || selectedTableId == null)
                 {
                     return NotFound(new { message = "No available tables for the specified number of guests and time." });
                 }
 
-                reservation.TableNumber = selectedTable.Value;
                 reservation.ReservationTime = globalEarliestTime.Value;
+                reservation.TableId = selectedTableId.Value;  
             }
 
             reservation.NumberOfGuests = reservationDto.NumberOfGuests;
@@ -181,22 +165,38 @@ namespace ReservationSystem.Controllers
             reservation.CreateDate = DateTime.UtcNow;
 
             _context.Reservations.Add(reservation);
-            await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetReservationsByTableNumber), new { tableNumber = reservation.TableNumber }, reservation);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, new { message = "Error saving reservation.", details = ex.InnerException?.Message });
+            }
+
+            var tableForReservation = await _context.Tables
+                .FirstOrDefaultAsync(t => t.Id == reservation.TableId);
+
+            var response = new
+            {
+                reservation.Id,
+                TableNumber = tableForReservation?.TableNumber,
+                reservation.ReservationTime,
+                reservation.NumberOfGuests,
+                reservation.GuestName,
+                reservation.CreateDate
+            };
+
+            return CreatedAtAction(nameof(GetAllReservations), null, response);
         }
-
-
-
-
-
 
 
         [HttpDelete("by-Id/{Id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteReservationsByTableNumber(int Id)
+        public async Task<IActionResult> DeleteReservationsById(int Id)
         {
             var reservations = await _context.Reservations
                 .Where(r => r.Id == Id)
@@ -204,7 +204,7 @@ namespace ReservationSystem.Controllers
 
             if (!reservations.Any())
             {
-                return NotFound(new { message = "No reservations found for the specified table number." });
+                return NotFound(new { message = "No reservations found for the specified Id." });
             }
 
             _context.Reservations.RemoveRange(reservations);
