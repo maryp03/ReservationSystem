@@ -36,6 +36,8 @@ namespace ReservationSystem.Controllers
             return Ok(reservations);
         }
 
+
+
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -53,14 +55,9 @@ namespace ReservationSystem.Controllers
                 return BadRequest(new { message = "The number of guests must be greater than 0." });
             }
 
-
-            var openingTime = TimeSpan.FromHours(10); 
-            var lastReservationTime = TimeSpan.FromHours(22); 
+            var openingTime = TimeSpan.FromHours(10);
+            var lastReservationTime = TimeSpan.FromHours(22);
             var now = DateTime.UtcNow;
-
-
-            DateTime adjustedNow = now.AddMinutes(60 - now.Minute).AddSeconds(-now.Second).AddMilliseconds(-now.Millisecond);
-            adjustedNow = adjustedNow.TimeOfDay < openingTime ? adjustedNow.Date + openingTime : adjustedNow;
 
             Reservation reservation = new Reservation();
 
@@ -87,110 +84,142 @@ namespace ReservationSystem.Controllers
                 {
                     var reservationTime = reservationDto.ReservationTime.Value;
 
-                    if (reservationTime < adjustedNow)
+                    if (reservationTime < now)
                     {
                         return BadRequest(new { message = "Reservations cannot be made in the past." });
                     }
-                    if (reservationTime.TimeOfDay < openingTime || reservationTime.TimeOfDay > lastReservationTime)
+
+                    if (reservationTime.TimeOfDay < openingTime || reservationTime.TimeOfDay >= lastReservationTime)
                     {
                         return BadRequest(new { message = "Reservations can only be made between 10:00 and 22:00." });
                     }
 
                     bool isTableReserved = existingReservations.Any(r =>
-                        r.ReservationTime >= reservationTime.AddHours(-1) &&
-                        r.ReservationTime <= reservationTime.AddHours(1));
+                        reservationTime < r.ReservationTime.AddHours(1) && r.ReservationTime <= reservationTime);
 
                     if (isTableReserved)
                     {
-                        return Conflict(new { message = "Table is already reserved for the specified time or within one hour of the reservation time." });
+                        return Conflict(new { message = "Table is already reserved for the specified time." });
                     }
 
                     reservation.ReservationTime = reservationTime;
                 }
                 else
                 {
-                    DateTime currentTime = adjustedNow.AddHours(1);
-                    DateTime? availableTime = null;
-
-                    foreach (var res in existingReservations.OrderBy(r => r.ReservationTime))
-                    {
-                        if ((res.ReservationTime - currentTime).TotalHours > 1)
-                        {
-                            availableTime = currentTime;
-                            break;
-                        }
-                        currentTime = res.ReservationTime.AddHours(1);
-
-                        if (currentTime.TimeOfDay > lastReservationTime)
-                        {
-                            currentTime = currentTime.Date.AddDays(1) + openingTime;
-                        }
-                    }
-
-                    availableTime ??= currentTime;
-
-                    if (availableTime.Value.TimeOfDay > lastReservationTime)
-                    {
-                        availableTime = availableTime.Value.Date.AddDays(1) + openingTime;
-                    }
-
-                    reservation.ReservationTime = availableTime.Value;
-                }
-
-                reservation.TableId = table.Id;
-            }
-            else
-            {
-                var availableTables = await _context.Tables
-                    .Where(t => t.Seats >= reservationDto.NumberOfGuests)
-                    .ToListAsync();
-
-                DateTime? globalEarliestTime = null;
-                int? selectedTableId = null;
-
-                foreach (var table in availableTables)
-                {
-                    var existingReservations = await _context.Reservations
-                        .Where(r => r.TableId == table.Id)
-                        .OrderBy(r => r.ReservationTime)
-                        .ToListAsync();
-
-                    DateTime potentialStartTime = adjustedNow.AddHours(1);
+                    DateTime potentialStartTime = now.Date == DateTime.UtcNow.Date
+                        ? now.AddHours(1).AddMinutes(1)
+                        : now.Date + openingTime;
 
                     foreach (var existingReservation in existingReservations)
                     {
-                        if ((existingReservation.ReservationTime - potentialStartTime).TotalHours > 1)
+                        if ((existingReservation.ReservationTime - potentialStartTime).TotalHours >= 1)
                         {
                             break;
                         }
 
                         potentialStartTime = existingReservation.ReservationTime.AddHours(1);
 
-                        if (potentialStartTime.TimeOfDay > lastReservationTime)
+                        if (potentialStartTime.TimeOfDay >= lastReservationTime)
                         {
                             potentialStartTime = potentialStartTime.Date.AddDays(1) + openingTime;
                         }
                     }
 
-                    if (globalEarliestTime == null || potentialStartTime < globalEarliestTime)
+                    if (potentialStartTime.TimeOfDay >= lastReservationTime)
                     {
-                        globalEarliestTime = potentialStartTime;
-                        selectedTableId = table.Id;
+                        return NotFound(new { message = "No available times for the specified table within business hours." });
                     }
+
+                    reservation.ReservationTime = potentialStartTime;
                 }
 
-                if (globalEarliestTime == null || selectedTableId == null)
+                reservation.TableId = table.Id;
+            }
+            else
+            {
+                if (reservationDto.ReservationTime.HasValue)
                 {
-                    return NotFound(new { message = "No available tables for the specified number of guests and time." });
-                }
+                    var requestedTime = reservationDto.ReservationTime.Value;
 
-                if (globalEarliestTime.Value.TimeOfDay > lastReservationTime)
+                    if (requestedTime.TimeOfDay < openingTime || requestedTime.TimeOfDay >= lastReservationTime)
+                    {
+                        return BadRequest(new { message = "Reservations can only be made between 10:00 and 22:00." });
+                    }
+
+                    var availableTable = await _context.Tables
+                        .Where(t => t.Seats >= reservationDto.NumberOfGuests)
+                        .FirstOrDefaultAsync(t => !_context.Reservations
+                            .Where(r => r.TableId == t.Id)
+                            .Any(r => requestedTime < r.ReservationTime.AddHours(1) && r.ReservationTime <= requestedTime));
+
+                    if (availableTable == null)
+                    {
+                        return NotFound(new { message = "No available tables for the specified time and number of guests." });
+                    }
+
+                    reservation.ReservationTime = requestedTime;
+                    reservation.TableId = availableTable.Id;
+                }
+                else
                 {
-                    globalEarliestTime = globalEarliestTime.Value.Date.AddDays(1) + openingTime;
-                }
+                    var availableTables = await _context.Tables
+                        .Where(t => t.Seats >= reservationDto.NumberOfGuests)
+                        .ToListAsync();
 
-                reservation.ReservationTime = globalEarliestTime.Value;
-                reservation.TableId = selectedTableId.Value;
+                    if (!availableTables.Any())
+                    {
+                        return NotFound(new { message = "No available tables for the specified number of guests." });
+                    }
+
+                    DateTime? globalEarliestTime = null;
+                    int? selectedTableId = null;
+
+                    foreach (var table in availableTables)
+                    {
+                        var existingReservations = await _context.Reservations
+                            .Where(r => r.TableId == table.Id)
+                            .OrderBy(r => r.ReservationTime)
+                            .ToListAsync();
+
+                        DateTime potentialStartTime = now.Date == DateTime.UtcNow.Date
+                            ? now.AddHours(1).AddMinutes(1)
+                            : now.Date + openingTime;
+
+                        foreach (var existingReservation in existingReservations)
+                        {
+                            if ((existingReservation.ReservationTime - potentialStartTime).TotalHours >= 1)
+                            {
+                                break;
+                            }
+
+                            potentialStartTime = existingReservation.ReservationTime.AddHours(1);
+
+                            if (potentialStartTime.TimeOfDay >= lastReservationTime)
+                            {
+                                potentialStartTime = potentialStartTime.Date.AddDays(1) + openingTime;
+                            }
+                        }
+
+                        if (globalEarliestTime == null || potentialStartTime < globalEarliestTime)
+                        {
+                            globalEarliestTime = potentialStartTime;
+                            selectedTableId = table.Id;
+                        }
+                    }
+
+                    if (globalEarliestTime == null || selectedTableId == null)
+                    {
+                        return NotFound(new { message = "No available tables for the specified number of guests and time." });
+                    }
+
+                    if (globalEarliestTime.Value.TimeOfDay >= lastReservationTime)
+                    {
+                        return NotFound(new { message = "No available times for the specified number of guests within business hours." });
+                    }
+
+                    reservation.ReservationTime = globalEarliestTime.Value;
+                    reservation.TableId = selectedTableId.Value;
+                }
             }
 
             reservation.NumberOfGuests = reservationDto.NumberOfGuests;
@@ -223,6 +252,9 @@ namespace ReservationSystem.Controllers
 
             return CreatedAtAction(nameof(GetAllReservations), null, response);
         }
+
+
+
 
         [HttpDelete("by-Id/{Id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

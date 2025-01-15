@@ -156,6 +156,14 @@ namespace ReservationSystem.Controllers
         {
             var tables = await _context.Tables
                 .Where(t => t.Seats >= numberOfGuests)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.TableNumber,
+                    t.Seats,
+                    t.CreateDate,
+                    t.UpdateDate
+                })
                 .ToListAsync();
 
             if (!tables.Any())
@@ -166,6 +174,7 @@ namespace ReservationSystem.Controllers
             return Ok(tables);
         }
 
+
         [HttpGet("available-tables")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -174,10 +183,14 @@ namespace ReservationSystem.Controllers
         [FromQuery] DateTime availableFrom,
         [FromQuery] DateTime availableUntil)
         {
+            if (availableFrom < DateTime.UtcNow || availableUntil < DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Dates cannot be in the past." });
+            }
 
-            var openingTime = TimeSpan.FromHours(10); 
-            var closingTime = TimeSpan.FromHours(23); 
-            var lastReservationTime = closingTime - TimeSpan.FromHours(1); 
+            var openingTime = TimeSpan.FromHours(10);
+            var closingTime = TimeSpan.FromHours(23);
+            var lastReservationTime = closingTime - TimeSpan.FromHours(1);
 
             availableFrom = availableFrom.Date + (availableFrom.TimeOfDay < openingTime ? openingTime : availableFrom.TimeOfDay);
             availableUntil = availableUntil.Date + (availableUntil.TimeOfDay > closingTime ? closingTime : availableUntil.TimeOfDay);
@@ -192,8 +205,8 @@ namespace ReservationSystem.Controllers
             {
                 var reservations = await _context.Reservations
                     .Where(r => r.TableId == table.Id &&
-                                r.ReservationTime >= availableFrom &&
-                                r.ReservationTime <= availableUntil)
+                                r.ReservationTime < availableUntil &&
+                                r.ReservationTime.AddHours(1) > availableFrom)
                     .OrderBy(r => r.ReservationTime)
                     .ToListAsync();
 
@@ -222,7 +235,7 @@ namespace ReservationSystem.Controllers
 
                 foreach (var slot in splitTimeSlots)
                 {
-                    if (slot.end - slot.start >= TimeSpan.FromHours(1)) 
+                    if (slot.end - slot.start >= TimeSpan.FromHours(1))
                     {
                         availableTables.Add(new
                         {
@@ -244,10 +257,10 @@ namespace ReservationSystem.Controllers
         }
 
         private List<(DateTime start, DateTime end)> SplitTimeSlotsByOpeningHours(
-        List<(DateTime start, DateTime end)> timeSlots,
-        TimeSpan openingTime,
-        TimeSpan lastReservationTime,
-        TimeSpan closingTime)
+            List<(DateTime start, DateTime end)> timeSlots,
+            TimeSpan openingTime,
+            TimeSpan lastReservationTime,
+            TimeSpan closingTime)
         {
             var result = new List<(DateTime start, DateTime end)>();
 
@@ -294,7 +307,7 @@ namespace ReservationSystem.Controllers
                 {
                     result[i] = (result[i].start, result[i + 1].end);
                     result.RemoveAt(i + 1);
-                    i--; 
+                    i--;
                 }
             }
 
@@ -306,12 +319,6 @@ namespace ReservationSystem.Controllers
 
             return result;
         }
-
-
-
-
-
-
 
 
 
