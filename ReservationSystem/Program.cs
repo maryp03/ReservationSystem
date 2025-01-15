@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ReservationSystemContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("ReservationSystemContext")));
 
+builder.Services.AddHostedService<ReservationCleanupService>();
+
 // Add services to the container.
 
 
