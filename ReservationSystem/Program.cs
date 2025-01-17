@@ -6,6 +6,7 @@ using ReservationSystem.Data;
 using System.Text;
 
 
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ReservationSystemContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("ReservationSystemContext")));

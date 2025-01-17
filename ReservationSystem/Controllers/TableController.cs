@@ -80,10 +80,14 @@ namespace ReservationSystem.Controllers
                 return Conflict(new { message = "Table number must be unique." });
             }
 
+            var localTime = DateTime.Now;
+
             var table = new Table
             {
-                TableNumber = tableDto.TableNumber.Value,  
-                Seats = tableDto.Seats
+                TableNumber = tableDto.TableNumber.Value,
+                Seats = tableDto.Seats,
+                CreateDate = localTime,
+                UpdateDate = localTime  
             };
 
             _context.Tables.Add(table);
