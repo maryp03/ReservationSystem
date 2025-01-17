@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.JsonPatch;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ReservationSystem.Data;
@@ -7,7 +8,6 @@ using ReservationSystem.Models.DTO;
 
 namespace ReservationSystem.Controllers
 {
-    
     [Route("api/[controller]")]
     [ApiController]
     public class TableController : ControllerBase
@@ -57,6 +57,7 @@ namespace ReservationSystem.Controllers
             return Ok(table);
         }
 
+        [Authorize]
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -79,10 +80,14 @@ namespace ReservationSystem.Controllers
                 return Conflict(new { message = "Table number must be unique." });
             }
 
+            var localTime = DateTime.Now;
+
             var table = new Table
             {
-                TableNumber = tableDto.TableNumber.Value,  
-                Seats = tableDto.Seats
+                TableNumber = tableDto.TableNumber.Value,
+                Seats = tableDto.Seats,
+                CreateDate = localTime,
+                UpdateDate = localTime  
             };
 
             _context.Tables.Add(table);
@@ -92,6 +97,7 @@ namespace ReservationSystem.Controllers
         }
 
 
+        [Authorize]
         [HttpPut("by-number/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -129,7 +135,7 @@ namespace ReservationSystem.Controllers
         }
 
 
-
+        [Authorize]
         [HttpDelete("by-number/{tableNumber}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
