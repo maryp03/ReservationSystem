@@ -327,17 +327,27 @@ namespace ReservationSystem.Controllers
         }
 
 
-
+        [Authorize]
         [HttpGet("reservations-by-time")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetReservationsByTime(
-        [FromQuery] DateTime availableFrom,
-        [FromQuery] DateTime availableUntil)
+            [FromQuery] DateTime availableFrom,
+            [FromQuery] DateTime availableUntil)
         {
+            if (availableFrom < DateTime.UtcNow || availableUntil < DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Dates cannot be in the past." });
+            }
+            if (availableFrom > availableUntil)
+            {
+                return BadRequest(new { message = "'AvailableFrom' must be earlier than 'AvailableUntil'." });
+            }
+
             var reservations = await _context.Reservations
                 .Where(r => r.ReservationTime >= availableFrom && r.ReservationTime <= availableUntil)
-                .Include(r => r.Table) 
+                .Include(r => r.Table)
                 .ToListAsync();
 
             if (!reservations.Any())
@@ -351,9 +361,10 @@ namespace ReservationSystem.Controllers
                 r.ReservationTime,
                 r.NumberOfGuests,
                 r.GuestName,
-                TableNumber = r.Table.TableNumber
+                r.Table.TableNumber
             }));
         }
+
 
 
 
