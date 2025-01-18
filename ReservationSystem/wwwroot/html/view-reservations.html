@@ -2,6 +2,8 @@
 <html>
 <head>
     <title>Reservation List</title>
+    <link rel="stylesheet" type="text/css" href="../css/stylesViewRes.css">
+
     <script>
         let jwtToken = null;
 
@@ -98,7 +100,6 @@
             }
         }
 
-
         function handleLogin() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
@@ -119,35 +120,43 @@
     </script>
 </head>
 <body>
-    <h1>Reservation List</h1>
+    <div class="container">
+        <h1>Reservation List</h1>
 
-    <div>
-        <h2>Login</h2>
-        <input type="text" id="username" placeholder="Username" />
-        <input type="password" id="password" placeholder="Password" />
-        <button onclick="handleLogin()">Login</button>
+        <div class="form-section">
+            <h2>Login</h2>
+            <form onsubmit="event.preventDefault(); handleLogin();">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <div class="form-section">
+            <h2>Filter Reservations</h2>
+            <form onsubmit="event.preventDefault(); filterReservations();">
+                <label for="availableFrom">From:</label>
+                <input type="datetime-local" id="availableFrom" required>
+                <label for="availableUntil">Until:</label>
+                <input type="datetime-local" id="availableUntil" required>
+                <button type="submit">Filter</button>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Table Number</th>
+                        <th>Reservation Time</th>
+                        <th>Number of Guests</th>
+                        <th>Guest Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="reservationsTable"></tbody>
+            </table>
+        </div>
     </div>
-
-    <div>
-        <h2>Filter Reservations</h2>
-        <label for="availableFrom">From:</label>
-        <input type="datetime-local" id="availableFrom" />
-        <label for="availableUntil">Until:</label>
-        <input type="datetime-local" id="availableUntil" />
-        <button onclick="filterReservations()">Filter</button>
-    </div>
-
-    <table border="1">
-        <thead>
-            <tr>
-                <th>Table Number</th>
-                <th>Reservation Time</th>
-                <th>Number of Guests</th>
-                <th>Guest Name</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="reservationsTable"></tbody>
-    </table>
 </body>
 </html>
