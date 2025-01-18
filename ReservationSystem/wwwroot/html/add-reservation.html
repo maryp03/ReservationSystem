@@ -1,0 +1,244 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Reservation</title>
+    <script>
+        async function fetchTablesBySeats() {
+            const numberOfGuests = document.getElementById("FilterNumberOfGuests").value;
+
+            if (!numberOfGuests || numberOfGuests <= 0) {
+                alert("Please enter a valid number of guests.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/Table/tables-by-seats?numberOfGuests=${numberOfGuests}`);
+                if (response.ok) {
+                    const tables = await response.json();
+                    const filteredTableList = document.getElementById("FilteredTableList");
+
+                    filteredTableList.innerHTML = "";
+
+                    tables.forEach(table => {
+                        const listItem = document.createElement("li");
+                        listItem.textContent = `Table ${table.tableNumber} (${table.seats} seats)`;
+                        filteredTableList.appendChild(listItem);
+                    });
+                } else {
+                    const error = await response.json();
+                    alert("Error fetching tables by seats: " + (error.message || "Unknown error"));
+                }
+            } catch (error) {
+                console.error("Error fetching tables by seats:", error);
+                alert("An error occurred while fetching tables by seats.");
+            }
+        }
+
+        async function fetchAvailableTables() {
+            const numberOfGuests = document.getElementById("FilterNumberOfGuests").value;
+            const availableFrom = document.getElementById("AvailableFrom").value;
+            const availableUntil = document.getElementById("AvailableUntil").value;
+
+            if (!numberOfGuests || numberOfGuests <= 0) {
+                alert("Please enter a valid number of guests.");
+                return;
+            }
+
+            if (!availableFrom || !availableUntil) {
+                alert("Please select a valid date and time range.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/Table/available-tables?numberOfGuests=${numberOfGuests}&availableFrom=${availableFrom}&availableUntil=${availableUntil}`);
+                if (response.ok) {
+                    const tables = await response.json();
+                    const filteredTableList = document.getElementById("FilteredTableList");
+
+                    filteredTableList.innerHTML = ""; // Clear previous results
+
+                    tables.forEach(table => {
+                        const listItem = document.createElement("li");
+                        listItem.textContent = `Table ${table.tableNumber} (${table.seats} seats) available from ${new Date(table.availableFrom).toLocaleString()} to ${new Date(table.availableUntil).toLocaleString()}`;
+                        filteredTableList.appendChild(listItem);
+                    });
+                } else {
+                    const error = await response.json();
+                    alert("Error fetching available tables: " + (error.message || "Unknown error"));
+                }
+            } catch (error) {
+                console.error("Error fetching available tables:", error);
+                alert("An error occurred while fetching available tables.");
+            }
+        }
+
+        async function fetchTables() {
+            try {
+                const response = await fetch("/api/Table");
+                if (response.ok) {
+                    const tables = await response.json();
+                    const tableSelect = document.getElementById("TableNumber");
+
+                    tableSelect.innerHTML = ""; // Wyczyść istniejące opcje
+                    const defaultOption = document.createElement("option");
+                    defaultOption.value = "";
+                    defaultOption.textContent = "Select a table";
+                    tableSelect.appendChild(defaultOption);
+
+                    tables.forEach(table => {
+                        const option = document.createElement("option");
+                        option.value = table.tableNumber;
+                        option.textContent = `Table ${table.tableNumber} (${table.seats} seats)`;
+                        tableSelect.appendChild(option);
+                    });
+
+                    tableSelect.disabled = false; // Włącz pole wyboru
+                } else {
+                    alert("Failed to fetch tables.");
+                }
+            } catch (error) {
+                console.error("Error fetching tables:", error);
+                alert("An error occurred while fetching the list of tables.");
+            }
+        }
+
+        async function addReservation() {
+            const tableNumberCheckbox = document.getElementById("noTableNumber");
+            const reservationTimeCheckbox = document.getElementById("noReservationTime");
+
+            const tableNumber = tableNumberCheckbox.checked ? null : document.getElementById("TableNumber").value;
+            const date = document.getElementById("ReservationDate").value;
+            const hour = document.getElementById("ReservationHour").value;
+            const minute = document.getElementById("ReservationMinute").value;
+
+            const reservationTime = reservationTimeCheckbox.checked ? null : `${date}T${hour}:${minute}`;
+
+            const now = new Date().toISOString();
+
+            if (reservationTime && reservationTime < now) {
+                alert("Reservation cannot be in the past.");
+                return;
+            }
+
+            const reservation = {
+                TableNumber: tableNumber ? parseInt(tableNumber) : null,
+                ReservationTime: reservationTime,
+                NumberOfGuests: document.getElementById("NumberOfGuests").value,
+                GuestName: document.getElementById("GuestName").value
+            };
+
+            try {
+                const response = await fetch("/api/Reservation", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(reservation)
+                });
+
+                if (response.ok) {
+                    alert("Reservation has been added!");
+                } else {
+                    const error = await response.json();
+                    alert("Error: " + (error.message || "Unknown error"));
+                }
+            } catch (error) {
+                console.error("Connection error:", error);
+                alert("Failed to connect to the server.");
+            }
+        }
+
+        function toggleTableSelection() {
+            const checkbox = document.getElementById("noTableNumber");
+            const tableSelect = document.getElementById("TableNumber");
+            tableSelect.disabled = checkbox.checked; // Disable table selection if checkbox is checked
+        }
+
+        function toggleTimeSelection() {
+            const checkbox = document.getElementById("noReservationTime");
+            const fields = ["ReservationDate", "ReservationHour", "ReservationMinute"];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.disabled = checkbox.checked;
+                if (checkbox.checked) {
+                    field.value = ""; // Clear field if disabled
+                }
+            });
+        }
+
+        window.onload = function () {
+            fetchTables(); // Load list of tables on page load
+        };
+    </script>
+</head>
+<body>
+    <div style="display: flex; gap: 20px;">
+        <!-- Add Reservation Section -->
+        <div>
+            <h1>Add Reservation</h1>
+            <form onsubmit="event.preventDefault(); addReservation();">
+                <label for="TableNumber">Table Number:</label>
+                <select id="TableNumber">
+                    <option>Loading...</option>
+                </select>
+                <input type="checkbox" id="noTableNumber" onclick="toggleTableSelection()" />
+                <label for="noTableNumber">Any available table</label><br />
+
+                <label for="ReservationDate">Reservation Date:</label>
+                <input type="date" id="ReservationDate" required />
+                <div style="display: inline-block; margin-left: 10px;">
+                    <select id="ReservationHour" required>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13">13</option>
+                        <option value="14">14</option>
+                        <option value="15">15</option>
+                        <option value="16">16</option>
+                        <option value="17">17</option>
+                        <option value="18">18</option>
+                        <option value="19">19</option>
+                        <option value="20">20</option>
+                        <option value="21">21</option>
+                    </select>
+                    :
+                    <select id="ReservationMinute" required>
+                        <option value="00">00</option>
+                        <option value="15">15</option>
+                        <option value="30">30</option>
+                        <option value="45">45</option>
+                    </select>
+                </div>
+                <input type="checkbox" id="noReservationTime" onclick="toggleTimeSelection()" />
+                <label for="noReservationTime">Find closest available time</label><br />
+
+                <label for="NumberOfGuests">Number of Guests:</label>
+                <input type="number" id="NumberOfGuests" min="1" max="20" required /><br />
+
+                <label for="GuestName">Guest Name:</label>
+                <input type="text" id="GuestName" maxlength="100" required /><br />
+
+                <button type="submit">Add</button>
+            </form>
+        </div>
+
+        <!-- Filter Tables Section -->
+        <div>
+            <h1>Filter Tables</h1>
+            <label for="FilterNumberOfGuests">Number of Guests:</label>
+            <input type="number" id="FilterNumberOfGuests" min="1" max="20" required /><br />
+
+            <label for="AvailableFrom">Available From:</label>
+            <input type="datetime-local" id="AvailableFrom" required /><br />
+
+            <label for="AvailableUntil">Available To:</label>
+            <input type="datetime-local" id="AvailableUntil" required /><br />
+
+            <button onclick="fetchTablesBySeats()">Filter by Seats</button>
+            <button onclick="fetchAvailableTables()">Filter by Availability</button>
+
+            <ul id="FilteredTableList"></ul>
+        </div>
+    </div>
+</body>
+</html>

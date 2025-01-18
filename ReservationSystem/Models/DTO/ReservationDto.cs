@@ -22,7 +22,7 @@ namespace ReservationSystem.Models.DTO
         public int NumberOfGuests { get; set; }
 
         [StringLength(100, ErrorMessage = "Guest name cannot be longer than 100 characters.")]
-        public string? GuestName { get; set; }
+        public string GuestName { get; set; }
     }
 
     public class FutureDateAttribute : ValidationAttribute

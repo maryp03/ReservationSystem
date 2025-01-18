@@ -9,7 +9,7 @@ namespace ReservationSystem.Models
         public int TableId { get; set; }
         public DateTime ReservationTime { get; set; }
         public int NumberOfGuests { get; set; }
-        public string? GuestName { get; set; }
+        public string GuestName { get; set; }
         public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 
 

@@ -1,0 +1,195 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Tables</title>
+    <script>
+        let jwtToken = null;
+
+        async function login(username, password) {
+            try {
+                const response = await fetch("https://localhost:7252/api/Auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    jwtToken = data.token;
+                    alert("Login successful!");
+                    fetchTables();
+                } else {
+                    const error = await response.json();
+                    alert("Login failed: " + error.message);
+                }
+            } catch (error) {
+                console.error("Error during login:", error);
+                alert("An error occurred during login.");
+            }
+        }
+
+        async function fetchTables() {
+            try {
+                const response = await fetch("/api/Table");
+                if (response.ok) {
+                    const tables = await response.json();
+                    const tableList = document.getElementById("tableList");
+
+                    tableList.innerHTML = "";
+
+                    tables.forEach(table => {
+                        const row = document.createElement("tr");
+
+                        const tableNumberCell = document.createElement("td");
+                        tableNumberCell.textContent = table.tableNumber;
+                        row.appendChild(tableNumberCell);
+
+                        const seatsCell = document.createElement("td");
+                        seatsCell.textContent = table.seats;
+                        row.appendChild(seatsCell);
+
+                        const actionsCell = document.createElement("td");
+
+                        const editButton = document.createElement("button");
+                        editButton.textContent = "Edit";
+                        editButton.onclick = () => editTable(table.tableNumber, table.seats);
+                        actionsCell.appendChild(editButton);
+
+                        const deleteButton = document.createElement("button");
+                        deleteButton.textContent = "Delete";
+                        deleteButton.onclick = () => deleteTable(table.tableNumber);
+                        actionsCell.appendChild(deleteButton);
+
+                        row.appendChild(actionsCell);
+
+                        tableList.appendChild(row);
+                    });
+                } else {
+                    alert("Failed to fetch tables.");
+                }
+            } catch (error) {
+                console.error("Error fetching tables:", error);
+                alert("An error occurred while fetching the tables.");
+            }
+        }
+
+        async function deleteTable(tableNumber) {
+            if (!jwtToken) {
+                alert("You are not authorized to do that :(");
+                return;
+            }
+
+            if (confirm("Are you sure you want to delete this table?")) {
+                try {
+                    const response = await fetch(`/api/Table/by-number/${tableNumber}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Authorization": `Bearer ${jwtToken}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert("Table has been deleted!");
+                        fetchTables();
+                    } else {
+                        const error = await response.json();
+                        alert("Error deleting table: " + (error.message || "Unknown error"));
+                    }
+                } catch (error) {
+                    console.error("Error deleting table:", error);
+                    alert("An error occurred while deleting the table.");
+                }
+            }
+        }
+
+        function editTable(tableNumber, seats) {
+            document.getElementById("EditTableNumber").value = tableNumber;
+            document.getElementById("EditSeats").value = seats;
+            document.getElementById("editForm").style.display = "block";
+        }
+
+        async function updateTable() {
+            if (!jwtToken) {
+                alert("You are not authorized to do that :(!");
+                return;
+            }
+
+            const tableNumber = document.getElementById("EditTableNumber").value;
+            const seats = document.getElementById("EditSeats").value;
+
+            const table = {
+                TableNumber: tableNumber,
+                Seats: seats
+            };
+
+            try {
+                const response = await fetch(`/api/Table/by-number/${tableNumber}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${jwtToken}`
+                    },
+                    body: JSON.stringify(table)
+                });
+
+                if (response.ok) {
+                    alert("Table has been updated!");
+                    document.getElementById("editForm").style.display = "none";
+                    fetchTables();
+                } else {
+                    const error = await response.json();
+                    alert("Error updating table: " + (error.message || "Unknown error"));
+                }
+            } catch (error) {
+                console.error("Error updating table:", error);
+                alert("An error occurred while updating the table.");
+            }
+        }
+
+        function handleLogin() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            login(username, password);
+        }
+
+        window.onload = fetchTables;
+    </script>
+</head>
+<body>
+    <h1>Manage Tables</h1>
+
+    <div>
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username" />
+        <input type="password" id="password" placeholder="Password" />
+        <button onclick="handleLogin()">Login</button>
+    </div>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Table Number</th>
+                <th>Seats</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="tableList"></tbody>
+    </table>
+
+    <div id="editForm" style="display:none;">
+        <h2>Edit Table</h2>
+        <form onsubmit="event.preventDefault(); updateTable();">
+            <label for="EditTableNumber">Table Number:</label>
+            <input type="number" id="EditTableNumber" disabled /><br />
+
+            <label for="EditSeats">Number of Seats:</label>
+            <input type="number" id="EditSeats" min="1" max="20" required /><br />
+
+            <button type="submit">Update Table</button>
+            <button type="button" onclick="document.getElementById('editForm').style.display='none';">Cancel</button>
+        </form>
+    </div>
+</body>
+</html>
