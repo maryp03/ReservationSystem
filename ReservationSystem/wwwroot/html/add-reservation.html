@@ -2,6 +2,8 @@
 <html>
 <head>
     <title>Add Reservation</title>
+    <link rel="stylesheet" type="text/css" href="../css/stylesAddRes.css">
+
     <script>
         async function fetchTablesBySeats() {
             const numberOfGuests = document.getElementById("FilterNumberOfGuests").value;
@@ -55,7 +57,7 @@
                     const tables = await response.json();
                     const filteredTableList = document.getElementById("FilteredTableList");
 
-                    filteredTableList.innerHTML = ""; // Clear previous results
+                    filteredTableList.innerHTML = ""; 
 
                     tables.forEach(table => {
                         const listItem = document.createElement("li");
@@ -79,7 +81,7 @@
                     const tables = await response.json();
                     const tableSelect = document.getElementById("TableNumber");
 
-                    tableSelect.innerHTML = ""; // Wyczyść istniejące opcje
+                    tableSelect.innerHTML = ""; 
                     const defaultOption = document.createElement("option");
                     defaultOption.value = "";
                     defaultOption.textContent = "Select a table";
@@ -92,7 +94,7 @@
                         tableSelect.appendChild(option);
                     });
 
-                    tableSelect.disabled = false; // Włącz pole wyboru
+                    tableSelect.disabled = false; 
                 } else {
                     alert("Failed to fetch tables.");
                 }
@@ -151,7 +153,7 @@
         function toggleTableSelection() {
             const checkbox = document.getElementById("noTableNumber");
             const tableSelect = document.getElementById("TableNumber");
-            tableSelect.disabled = checkbox.checked; // Disable table selection if checkbox is checked
+            tableSelect.disabled = checkbox.checked; 
         }
 
         function toggleTimeSelection() {
@@ -161,32 +163,32 @@
                 const field = document.getElementById(fieldId);
                 field.disabled = checkbox.checked;
                 if (checkbox.checked) {
-                    field.value = ""; // Clear field if disabled
+                    field.value = ""; 
                 }
             });
         }
 
         window.onload = function () {
-            fetchTables(); // Load list of tables on page load
+            fetchTables(); 
         };
     </script>
 </head>
 <body>
-    <div style="display: flex; gap: 20px;">
-        <!-- Add Reservation Section -->
-        <div>
+    <div class="container">
+        <div class="form-section">
             <h1>Add Reservation</h1>
             <form onsubmit="event.preventDefault(); addReservation();">
                 <label for="TableNumber">Table Number:</label>
                 <select id="TableNumber">
                     <option>Loading...</option>
                 </select>
-                <input type="checkbox" id="noTableNumber" onclick="toggleTableSelection()" />
-                <label for="noTableNumber">Any available table</label><br />
-
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="noTableNumber" onclick="toggleTableSelection()" />
+                    <label class="form-check-label" for="noTableNumber">Any available table</label>
+                </div>
                 <label for="ReservationDate">Reservation Date:</label>
-                <input type="date" id="ReservationDate" required />
-                <div style="display: inline-block; margin-left: 10px;">
+                <input type="date" id="ReservationDate" required>
+                <div class="time-select">
                     <select id="ReservationHour" required>
                         <option value="10">10</option>
                         <option value="11">11</option>
@@ -209,34 +211,30 @@
                         <option value="45">45</option>
                     </select>
                 </div>
-                <input type="checkbox" id="noReservationTime" onclick="toggleTimeSelection()" />
-                <label for="noReservationTime">Find closest available time</label><br />
-
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="noReservationTime" onclick="toggleTimeSelection()" />
+                    <label class="form-check-label" for="noReservationTime">Find closest available time</label>
+                </div>
                 <label for="NumberOfGuests">Number of Guests:</label>
-                <input type="number" id="NumberOfGuests" min="1" max="20" required /><br />
-
+                <input type="number" id="NumberOfGuests" min="1" max="20" required>
                 <label for="GuestName">Guest Name:</label>
-                <input type="text" id="GuestName" maxlength="100" required /><br />
-
-                <button type="submit">Add</button>
+                <input type="text" id="GuestName" maxlength="100" required>
+                <button type="submit">Add Reservation</button>
             </form>
         </div>
 
-        <!-- Filter Tables Section -->
-        <div>
+        <div class="form-section">
             <h1>Filter Tables</h1>
-            <label for="FilterNumberOfGuests">Number of Guests:</label>
-            <input type="number" id="FilterNumberOfGuests" min="1" max="20" required /><br />
-
-            <label for="AvailableFrom">Available From:</label>
-            <input type="datetime-local" id="AvailableFrom" required /><br />
-
-            <label for="AvailableUntil">Available To:</label>
-            <input type="datetime-local" id="AvailableUntil" required /><br />
-
-            <button onclick="fetchTablesBySeats()">Filter by Seats</button>
-            <button onclick="fetchAvailableTables()">Filter by Availability</button>
-
+            <form>
+                <label for="FilterNumberOfGuests">Number of Guests:</label>
+                <input type="number" id="FilterNumberOfGuests" min="1" max="20" required>
+                <label for="AvailableFrom">Available From:</label>
+                <input type="datetime-local" id="AvailableFrom" required>
+                <label for="AvailableUntil">Available To:</label>
+                <input type="datetime-local" id="AvailableUntil" required>
+                <button type="button" onclick="fetchTablesBySeats()">Filter by Seats</button>
+                <button type="button" onclick="fetchAvailableTables()">Filter by Availability</button>
+            </form>
             <ul id="FilteredTableList"></ul>
         </div>
     </div>
