@@ -18,6 +18,7 @@ namespace ReservationSystem.Controllers
             _context = context;
         }
 
+        [Authorize]
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

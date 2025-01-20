@@ -107,7 +107,6 @@ public class ReservationControllerTests
     }
 
 
-
     [Fact]
     public async Task DeleteReservation_ShouldReturnNoContent_WhenReservationExists()
     {
@@ -118,7 +117,13 @@ public class ReservationControllerTests
 
         using (var context = new ReservationSystemContext(options))
         {
-            context.Reservations.Add(new Reservation { Id = 1 });
+            context.Reservations.Add(new Reservation
+            {
+                Id = 1,
+                ReservationTime = DateTime.UtcNow.AddHours(2),
+                NumberOfGuests = 4,
+                GuestName = "Test Guest"
+            });
             context.SaveChanges();
         }
 
@@ -130,12 +135,16 @@ public class ReservationControllerTests
             var result = await controller.DeleteReservationsById(1);
 
             // Assert
-            result.Should().BeOfType<NoContentResult>();
+            Assert.NotNull(result); 
+            result.Should().BeOfType<NoContentResult>(); 
 
             var reservationInDb = await context.Reservations.FirstOrDefaultAsync(r => r.Id == 1);
-            reservationInDb.Should().BeNull();
+            Assert.Null(reservationInDb);
         }
     }
+
+
+
 
 
     [Fact]

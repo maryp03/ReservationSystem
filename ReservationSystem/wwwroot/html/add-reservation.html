@@ -139,7 +139,18 @@
                 });
 
                 if (response.ok) {
-                    alert("Reservation has been added!");
+                    const responseData = await response.json(); 
+
+                    let formattedTime;
+                    if (responseData.reservationTime) {
+                        formattedTime = new Date(responseData.reservationTime).toLocaleString();
+                    } else if (reservationTime) {
+                        formattedTime = new Date(reservationTime).toLocaleString();
+                    } else {
+                        formattedTime = "a time to be determined";
+                    }
+
+                    alert(`Reservation has been added!\nYou have a reservation at: ${formattedTime}`);
                 } else {
                     const error = await response.json();
                     alert("Error: " + (error.message || "Unknown error"));
@@ -174,6 +185,13 @@
     </script>
 </head>
 <body>
+    <div class="nav-links">
+        <a href="add-table.html">Add Table</a>
+        <a href="view-reservations.html">View Reservations</a>
+        <a href="view-tables.html">View Tables</a>
+    </div>
+
+
     <div class="container">
         <div class="form-section">
             <h1>Add Reservation</h1>
